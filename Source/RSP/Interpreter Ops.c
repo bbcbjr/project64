@@ -11,7 +11,7 @@
 #include "log.h"
 #include "x86.h"
 #include "Types.h"
-
+#include <immintrin.h>
 #include <float.h>
 
 // TODO: Is this still an issue? If so, investigate, and if not, remove this!
@@ -857,27 +857,56 @@ void RSP_Vector_VMADH (void) {
 
 void RSP_Vector_VADD(void)
 {
-	int el, del;
-	int32_t temp;
-	VECTOR result = {0};
+    const int8_t element[8];
+    memcpy(element, EleSpec[RSPOpC.rs].B, sizeof(element));
 
-	for (el = 0; el < 8; el++) {
-		del = EleSpec[RSPOpC.rs].B[el];
+    const int16_t vector[8];
+    memcpy(vector, RSP_Vect[RSPOpC.rt].HW, sizeof(vector));
 
-		temp = (int)RSP_Vect[RSPOpC.rd].HW[el] + (int)RSP_Vect[RSPOpC.rt].HW[del] +
-			 ((RSP_Flags[0].UW >> (7 - el)) & 0x1);
-		RSP_ACCUM[el].HW[1] = ((int16_t)temp);
-		// Clamp signed
-		if (temp < ((int16_t)-32768)) {
-			result.HW[el] = ((int16_t)-32768);
-		} else if (temp > ((int16_t)32767)) {
-			result.HW[el] = ((int16_t)32767); 
-		} else {
-			result.HW[el] = ((int16_t)temp);
-		}
-	}
-	RSP_Vect[RSPOpC.sa] = result;
-	RSP_Flags[0].UW = 0;
+    int16_t vt[8] =
+    {
+        vector[element[0]],
+        vector[element[1]],
+        vector[element[2]],
+        vector[element[3]],
+        vector[element[4]],
+        vector[element[5]],
+        vector[element[6]],
+        vector[element[7]],
+    };
+
+    __m128i xmm_vs = _mm_load_si128((__m128i *)RSP_Vect[RSPOpC.rd].HW);
+    __m128i xmm_vt = _mm_load_si128((__m128i *)vt);
+
+    const uint16_t rsp_flags_0 = (uint16_t)(RSP_Flags[0].UW & 0xFF);
+    __m128i xmm_rsp_flags_0 = _mm_set1_epi16(rsp_flags_0);
+    __m128i xmm_mask = _mm_set_epi16(0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80);
+
+    // Extract the carry value from xmm_rsp_flags_0 using bitwise AND and comparisons
+    // The vector control register VCO is used as carry in; and VCO is cleared.
+    __m128i xmm_vco = _mm_and_si128(xmm_rsp_flags_0, xmm_mask);
+			xmm_vco = _mm_cmpeq_epi16(xmm_vco, xmm_mask);
+			xmm_vco = _mm_and_si128(xmm_vco, _mm_set1_epi16(0x01));
+
+    // Perform vector addition with saturation
+    __m128i xmm_vd = _mm_adds_epi16(xmm_vs, xmm_vt);
+			xmm_vd = _mm_adds_epi16(xmm_vd, xmm_vco);
+
+    // Set the values in the accuumulator
+    for (int i = 0; i < 8; i++)
+        RSP_ACCUM[i].HW[1] = ((int16_t)xmm_vd.m128i_i16[i]);
+
+    // Clamp signed
+    __m128i min = _mm_set1_epi16((int16_t)-32768);
+    __m128i max = _mm_set1_epi16((int16_t)32767);
+    xmm_vd = _mm_min_epi16(xmm_vd, max);
+    xmm_vd = _mm_max_epi16(xmm_vd, min);
+	
+    // Store the result back into the result vector
+    _mm_storeu_si128((__m128i *)RSP_Vect[RSPOpC.sa].HW, xmm_vd);
+
+    // VCO is cleared.
+    RSP_Flags[0].UW = 0;
 }
 
 void RSP_Vector_VSUB (void) {
