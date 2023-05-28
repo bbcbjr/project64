@@ -857,56 +857,108 @@ void RSP_Vector_VMADH (void) {
 
 void RSP_Vector_VADD(void)
 {
-    const int8_t element[8];
-    memcpy(element, EleSpec[RSPOpC.rs].B, sizeof(element));
+	int el, del;
+	int32_t temp;
+	VECTOR result = {0};
 
-    const int16_t vector[8];
-    memcpy(vector, RSP_Vect[RSPOpC.rt].HW, sizeof(vector));
+	for (el = 0; el < 8; el++) {
+		del = EleSpec[RSPOpC.rs].B[el];
 
-    int16_t vt[8] =
-    {
-        vector[element[0]],
-        vector[element[1]],
-        vector[element[2]],
-        vector[element[3]],
-        vector[element[4]],
-        vector[element[5]],
-        vector[element[6]],
-        vector[element[7]],
-    };
-
-    __m128i xmm_vs = _mm_load_si128((__m128i *)RSP_Vect[RSPOpC.rd].HW);
-    __m128i xmm_vt = _mm_load_si128((__m128i *)vt);
-
-    const uint16_t rsp_flags_0 = (uint16_t)(RSP_Flags[0].UW & 0xFF);
-    __m128i xmm_rsp_flags_0 = _mm_set1_epi16(rsp_flags_0);
-    __m128i xmm_mask = _mm_set_epi16(0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80);
-
-    // Extract the carry value from xmm_rsp_flags_0 using bitwise AND and comparisons
-    // The vector control register VCO is used as carry in; and VCO is cleared.
-    __m128i xmm_vco = _mm_and_si128(xmm_rsp_flags_0, xmm_mask);
-			xmm_vco = _mm_cmpeq_epi16(xmm_vco, xmm_mask);
-			xmm_vco = _mm_and_si128(xmm_vco, _mm_set1_epi16(0x01));
-
-    // Perform vector addition with saturation
-    __m128i xmm_vd = _mm_adds_epi16(xmm_vs, xmm_vt);
-			xmm_vd = _mm_adds_epi16(xmm_vd, xmm_vco);
-
-    // Set the values in the accuumulator
-    for (int i = 0; i < 8; i++)
-        RSP_ACCUM[i].HW[1] = ((int16_t)xmm_vd.m128i_i16[i]);
-
-    // Clamp signed
-    __m128i min = _mm_set1_epi16((int16_t)-32768);
-    __m128i max = _mm_set1_epi16((int16_t)32767);
-    xmm_vd = _mm_min_epi16(xmm_vd, max);
-    xmm_vd = _mm_max_epi16(xmm_vd, min);
+		temp = (int)RSP_Vect[RSPOpC.rd].HW[el] + (int)RSP_Vect[RSPOpC.rt].HW[del] +
+			 ((RSP_Flags[0].UW >> (7 - el)) & 0x1);
+		RSP_ACCUM[el].HW[1] = ((int16_t)temp);
+		// Clamp signed
+		if (temp < ((int16_t)-32768)) {
+			result.HW[el] = ((int16_t)-32768);
+		} else if (temp > ((int16_t)32767)) {
+			result.HW[el] = ((int16_t)32767); 
+		} else {
+			result.HW[el] = ((int16_t)temp);
+		}
+	}
+	RSP_Vect[RSPOpC.sa] = result;
+	RSP_Flags[0].UW = 0;
+}
 	
-    // Store the result back into the result vector
-    _mm_storeu_si128((__m128i *)RSP_Vect[RSPOpC.sa].HW, xmm_vd);
+/**
+ * Performs vector addition using SIMD instructions.
+ */
+void RSP_Vector_VADD_SIMD(void)
+{
+	// Convert 16-bit integers to 32-bit integers and load vs
+	__m256i vs = _mm256_cvtepi16_epi32(_mm_loadu_si128((__m128i *)RSP_Vect[RSPOpC.rd].HW));
 
-    // VCO is cleared.
-    RSP_Flags[0].UW = 0;
+	// Load elements and convert unsigned 8-bit integers to 16-bit integers
+	__m128i elements = _mm_cvtepu8_epi16(_mm_loadu_si128((__m128i *)EleSpec[RSPOpC.rs].B));
+
+	// Load lanes content
+	__m128i lanes = _mm_load_si128((__m128i *)RSP_Vect[RSPOpC.rt].HW);
+
+	// Broadcast the selected lanes to get vd
+	__m256i vt = _mm256_permutevar8x32_epi32(_mm256_cvtepi16_epi32(lanes), _mm256_cvtepi16_epi32(elements));
+
+	__m256i vco;
+
+	// Set vco to a vector with each element equal to the least significant byte of RSP_Flags[0].UW
+	vco = _mm256_set1_epi32(RSP_Flags[0].UW & 0xFF);
+
+	// Right shift vco by the lane index using a variable shift amount
+	vco = _mm256_srlv_epi32(vco, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+
+	// Mask vco to keep only the least significant bit
+	vco = _mm256_and_si256(vco, _mm256_set1_epi32(0x1));
+
+	__m256i vd;
+
+	// Add vs and vt vectors
+	vd = _mm256_add_epi32(vs, vt);
+
+	// Add vco to vd
+	vd = _mm256_add_epi32(vd, vco);
+
+	// Extract lower and upper halves of vd
+	__m128i vd_lower = _mm256_extracti128_si256(vd, 0);
+	__m128i vd_upper = _mm256_extracti128_si256(vd, 1);
+
+	__m256i accumulator;
+	__m256i carry;
+
+	// Set the accumulator lower part
+	accumulator = _mm256_loadu_si256((__m256i *)&RSP_ACCUM[0]);
+
+	// Shift vd_lower left by 2 bytes
+	carry = _mm256_bslli_epi128(_mm256_cvtepi16_epi32(vd_lower), 2);
+
+	// Blend carry with accumulator using a mask
+	accumulator = _mm256_blend_epi16(accumulator, carry, 0b00100010);
+
+	// Store the updated accumulator lower part
+	_mm256_storeu_si256((__m256i *)&RSP_ACCUM[0], accumulator);
+
+	// Set the accumulator upper part
+	accumulator = _mm256_loadu_si256((__m256i *)&RSP_ACCUM[4]);
+
+	// Shift vd_upper left by 2 bytes
+	carry = _mm256_bslli_epi128(_mm256_cvtepi16_epi32(vd_upper), 2);
+
+	// Blend carry with accumulator using a mask
+	accumulator = _mm256_blend_epi16(accumulator, carry, 0b00100010);
+
+	// Store the updated accumulator upper part
+	_mm256_storeu_si256((__m256i *)&RSP_ACCUM[4], accumulator);
+
+	// Clamp signed values in vd to the range [-32768, 32767]
+	vd = _mm256_min_epi32(vd, _mm256_set1_epi32(32767));
+	vd = _mm256_max_epi32(vd, _mm256_set1_epi32((int32_t)-32768));
+
+	// Pack the lower and upper halves of vd into a single 128-bit result
+	__m128i result = _mm_packs_epi32(vd_lower, vd_upper);
+
+	// Store the packed result in RSP_Vect[RSPOpC.sa].HW
+	_mm_storeu_si128((__m128i *)RSP_Vect[RSPOpC.sa].HW, result);
+
+	// Clear VCO
+	RSP_Flags[0].UW = 0;
 }
 
 void RSP_Vector_VSUB (void) {
