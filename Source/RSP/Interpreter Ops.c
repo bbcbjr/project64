@@ -1017,7 +1017,7 @@ void RSP_Vector_VADD_SIMD(void)
 	vd = _mm256_max_epi32(vd, _mm256_set1_epi32((int32_t)-32768));
 
 	// Pack the lower and upper halves of vd into a single 128-bit result
-	__m128i result = _mm_packs_epi32(vd_lower, vd_upper);
+	__m128i result = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1));
 
 	// Store the packed result in RSP_Vect[RSPOpC.sa].HW
 	_mm_storeu_si128((__m128i *)RSP_Vect[RSPOpC.sa].HW, result);
@@ -1122,7 +1122,7 @@ void RSP_Vector_VSUB_SIMD(void)
 	vd = _mm256_max_epi32(vd, _mm256_set1_epi32((int32_t)-32768));
 
 	// Pack the lower and upper halves of vd into a single 128-bit result
-	__m128i result = _mm_packs_epi32(vd_lower, vd_upper);
+	__m128i result = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1));
 
 	// Store the packed result in RSP_Vect[RSPOpC.sa].HW
 	_mm_storeu_si128((__m128i *)RSP_Vect[RSPOpC.sa].HW, result);
