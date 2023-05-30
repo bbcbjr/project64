@@ -855,6 +855,71 @@ void RSP_Vector_VMADH (void) {
 	RSP_Vect[RSPOpC.sa] = result;
 }
 
+/**
+ * Pperforms a vectorized multiply-accumulate operation using SIMD instructions.
+ */
+void RSP_Vector_VMADH_SIMD(void)
+{
+	// Load the source vector (vs) from memory and convert the 16-bit elements to 32-bit integers
+	__m256i vs = _mm256_cvtepi16_epi32(_mm_loadu_si128((__m128i *)RSP_Vect[RSPOpC.rd].HW));
+
+	// Load the elements from a specific byte offset (EleSpec[RSPOpC.rs].B) and convert them to 16-bit unsigned integers
+	__m128i elements = _mm_cvtepu8_epi16(_mm_loadu_si128((__m128i *)EleSpec[RSPOpC.rs].B));
+
+	// Load the lanes (values) from memory as 128-bit integers
+	__m128i lanes = _mm_loadu_si128((__m128i *)RSP_Vect[RSPOpC.rt].HW);
+
+	// Convert the 128-bit lanes to 32-bit integers and permute them based on the elements
+	__m256i vt = _mm256_permutevar8x32_epi32(_mm256_cvtepi16_epi32(lanes), _mm256_cvtepi16_epi32(elements));
+
+	// Multiply the source vector (vs) and the permuted lanes (vt) element-wise
+	__m256i product = _mm256_mullo_epi32(vs, vt);
+
+	// Extract the lower 128 bits of the product
+	__m256i lower;
+	lower = _mm256_zextsi128_si256(_mm256_extracti128_si256(product, 0b0));
+
+	// Rearrange the lower 128 bits to merge them into a single 256-bit vector
+	lower = _mm256_permutevar8x32_epi32(lower, _mm256_set_epi32(3, 7, 2, 6, 1, 5, 0, 4));
+
+	// Add the lower 128-bit vector to the corresponding values in the RSP_ACCUM array
+	lower = _mm256_add_epi32(_mm256_loadu_si256((__m256i *)&RSP_ACCUM[0]), lower);
+
+	// Store the updated lower 128-bit vector back to the RSP_ACCUM array
+	_mm256_storeu_si256((__m256i *)&RSP_ACCUM[0], lower);
+
+	// Extract the upper 128 bits of the product
+	__m256i upper;
+	upper = _mm256_zextsi128_si256(_mm256_extracti128_si256(product, 0b1));
+
+	// Rearrange the upper 128 bits to merge them into a single 256-bit vector
+	upper = _mm256_permutevar8x32_epi32(upper, _mm256_set_epi32(3, 7, 2, 6, 1, 5, 0, 4));
+
+	// Add the upper 128-bit vector to the corresponding values in the RSP_ACCUM array
+	upper = _mm256_add_epi32(_mm256_loadu_si256((__m256i *)&RSP_ACCUM[4]), upper);
+
+	// Store the updated upper 128-bit vector back to the RSP_ACCUM array
+	_mm256_storeu_si256((__m256i *)&RSP_ACCUM[4], upper);
+
+	// Rearrange the lower and upper vectors to prepare for merging into a single 256-bit vector
+	lower = _mm256_permutevar8x32_epi32(lower, _mm256_set_epi32(6, 4, 2, 0, 7, 5, 3, 1));
+	upper = _mm256_permutevar8x32_epi32(upper, _mm256_set_epi32(7, 5, 3, 1, 6, 4, 2, 0));
+
+	// Merge the lower and upper vectors into a single 256-bit vector
+	__m256i vd;
+	vd = _mm256_blend_epi32(lower, upper, 0b11110000);
+
+	// Clamp the signed values in vd to the range [-32768, 32767]
+	vd = _mm256_min_epi32(vd, _mm256_set1_epi32(32767));
+	vd = _mm256_max_epi32(vd, _mm256_set1_epi32((int32_t)-32768));
+
+	// Pack the lower and upper halves of vd into a single 128-bit result
+	__m128i result = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1));
+
+	// Store the packed result into the RSP_Vect array
+	_mm_storeu_si128((__m128i *)RSP_Vect[RSPOpC.sa].HW, result);
+}
+
 void RSP_Vector_VADD(void)
 {
 	int el, del;
@@ -892,7 +957,7 @@ void RSP_Vector_VADD_SIMD(void)
 	__m128i elements = _mm_cvtepu8_epi16(_mm_loadu_si128((__m128i *)EleSpec[RSPOpC.rs].B));
 
 	// Load lanes content
-	__m128i lanes = _mm_load_si128((__m128i *)RSP_Vect[RSPOpC.rt].HW);
+	__m128i lanes = _mm_loadu_si128((__m128i *)RSP_Vect[RSPOpC.rt].HW);
 
 	// Broadcast the selected lanes to get vd
 	__m256i vt = _mm256_permutevar8x32_epi32(_mm256_cvtepi16_epi32(lanes), _mm256_cvtepi16_epi32(elements));
@@ -997,7 +1062,7 @@ void RSP_Vector_VSUB_SIMD(void)
 	__m128i elements = _mm_cvtepu8_epi16(_mm_loadu_si128((__m128i *)EleSpec[RSPOpC.rs].B));
 
 	// Load lanes content
-	__m128i lanes = _mm_load_si128((__m128i *)RSP_Vect[RSPOpC.rt].HW);
+	__m128i lanes = _mm_loadu_si128((__m128i *)RSP_Vect[RSPOpC.rt].HW);
 
 	// Broadcast the selected lanes to get vd
 	__m256i vt = _mm256_permutevar8x32_epi32(_mm256_cvtepi16_epi32(lanes), _mm256_cvtepi16_epi32(elements));
@@ -1022,8 +1087,8 @@ void RSP_Vector_VSUB_SIMD(void)
 	vd = _mm256_sub_epi32(vd, vco);
 
 	// Extract lower and upper halves of vd
-	__m128i vd_lower = _mm256_extracti128_si256(vd, 0);
-	__m128i vd_upper = _mm256_extracti128_si256(vd, 1);
+	__m128i vd_lower = _mm256_extracti128_si256(vd, 0b0);
+	__m128i vd_upper = _mm256_extracti128_si256(vd, 0b1);
 
 	__m256i accumulator;
 	__m256i carry;
