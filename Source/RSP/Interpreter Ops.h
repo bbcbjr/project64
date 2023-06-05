@@ -115,6 +115,50 @@ void RSP_Vector_VRSQL   ( void );
 void RSP_Vector_VRSQH   ( void );
 void RSP_Vector_VNOOP   ( void );
 
+// Vector functions implemented using SIMD
+
+void RSP_Vector_VMULF_SIMD(void);
+void RSP_Vector_VMULU_SIMD(void);
+void RSP_Vector_VMUDL_SIMD(void);
+void RSP_Vector_VMUDM_SIMD(void);
+void RSP_Vector_VMUDN_SIMD(void);
+void RSP_Vector_VMUDH_SIMD(void);
+void RSP_Vector_VMACF_SIMD(void);
+void RSP_Vector_VMACU_SIMD(void);
+void RSP_Vector_VMACQ_SIMD(void);
+void RSP_Vector_VMADL_SIMD(void);
+void RSP_Vector_VMADM_SIMD(void);
+void RSP_Vector_VMADN_SIMD(void);
+void RSP_Vector_VMADH_SIMD(void);
+void RSP_Vector_VADD_SIMD(void);
+void RSP_Vector_VSUB_SIMD(void);
+void RSP_Vector_VABS_SIMD(void);
+void RSP_Vector_VADDC_SIMD(void);
+void RSP_Vector_VSUBC_SIMD(void);
+void RSP_Vector_VSAW_SIMD(void);
+void RSP_Vector_VLT_SIMD(void);
+void RSP_Vector_VEQ_SIMD(void);
+void RSP_Vector_VNE_SIMD(void);
+void RSP_Vector_VGE_SIMD(void);
+void RSP_Vector_VCL_SIMD(void);
+void RSP_Vector_VCH_SIMD(void);
+void RSP_Vector_VCR_SIMD(void);
+void RSP_Vector_VMRG_SIMD(void);
+void RSP_Vector_VAND_SIMD(void);
+void RSP_Vector_VNAND_SIMD(void);
+void RSP_Vector_VOR_SIMD(void);
+void RSP_Vector_VNOR_SIMD(void);
+void RSP_Vector_VXOR_SIMD(void);
+void RSP_Vector_VNXOR_SIMD(void);
+void RSP_Vector_VRCP_SIMD(void);
+void RSP_Vector_VRCPL_SIMD(void);
+void RSP_Vector_VRCPH_SIMD(void);
+void RSP_Vector_VMOV_SIMD(void);
+void RSP_Vector_VRSQ_SIMD(void);
+void RSP_Vector_VRSQL_SIMD(void);
+void RSP_Vector_VRSQH_SIMD(void);
+void RSP_Vector_VNOOP_SIMD(void);
+
 // LC2 functions
 
 void RSP_Opcode_LBV     ( void );

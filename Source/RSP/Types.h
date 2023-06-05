@@ -2,6 +2,7 @@
 #define __Types_h
 
 #include <stdint.h>
+#include <emmintrin.h>
 
 // Pointer to RSP operation code functions or "func"
 // This is the type of all RSP interpreter and recompiler functions
@@ -50,7 +51,9 @@ typedef union tagUDWORD {
     float       F[2];
 } UDWORD;
 
+__declspec(align(16))
 typedef union tagVect {
+    __m128i     V;
     int64_t     DW[2];
     uint64_t    UDW[2];
     int32_t     W[4];
@@ -63,5 +66,16 @@ typedef union tagVect {
     double      FD[2];
     float       FS[4];
 } VECTOR;
+
+__declspec(align(16)) 
+typedef struct
+{
+    // 47...32
+    __m128i High;
+    // 31...16
+    __m128i Middle;
+    // 15...0
+    __m128i Low;
+} ACCUMULATOR;
 
 #endif

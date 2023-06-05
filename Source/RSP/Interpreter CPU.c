@@ -12,6 +12,8 @@
 #include "opcode.h"
 #include "log.h"
 
+#define USE_SIMD 1
+
 DWORD RSP_NextInstruction, RSP_JumpTo;
 
 void BuildInterpreterCPU(void) {
@@ -243,7 +245,7 @@ void BuildInterpreterCPU(void) {
 	RSP_Cop2[29] = RSP_COP2_VECTOR;
 	RSP_Cop2[30] = RSP_COP2_VECTOR;
 	RSP_Cop2[31] = RSP_COP2_VECTOR;
-
+#if !USE_SIMD
 	RSP_Vector[ 0] = RSP_Vector_VMULF;
 	RSP_Vector[ 1] = RSP_Vector_VMULU;
 	RSP_Vector[ 2] = rsp_UnknownOpcode;
@@ -308,7 +310,72 @@ void BuildInterpreterCPU(void) {
 	RSP_Vector[61] = rsp_UnknownOpcode;
 	RSP_Vector[62] = rsp_UnknownOpcode;
 	RSP_Vector[63] = rsp_UnknownOpcode;
-
+#else
+	RSP_Vector[0] = RSP_Vector_VMULF_SIMD;
+    RSP_Vector[1] = RSP_Vector_VMULU_SIMD;
+    RSP_Vector[2] = rsp_UnknownOpcode;
+    RSP_Vector[3] = rsp_UnknownOpcode;
+    RSP_Vector[4] = RSP_Vector_VMUDL_SIMD;
+    RSP_Vector[5] = RSP_Vector_VMUDM_SIMD;
+    RSP_Vector[6] = RSP_Vector_VMUDN_SIMD;
+    RSP_Vector[7] = RSP_Vector_VMUDH_SIMD;
+    RSP_Vector[8] = RSP_Vector_VMACF_SIMD;
+    RSP_Vector[9] = RSP_Vector_VMACU_SIMD;
+    RSP_Vector[10] = rsp_UnknownOpcode;
+    RSP_Vector[11] = RSP_Vector_VMACQ_SIMD;
+    RSP_Vector[12] = RSP_Vector_VMADL_SIMD;
+    RSP_Vector[13] = RSP_Vector_VMADM_SIMD;
+    RSP_Vector[14] = RSP_Vector_VMADN_SIMD;
+    RSP_Vector[15] = RSP_Vector_VMADH_SIMD;
+    RSP_Vector[16] = RSP_Vector_VADD_SIMD;
+    RSP_Vector[17] = RSP_Vector_VSUB_SIMD;
+    RSP_Vector[18] = rsp_UnknownOpcode;
+    RSP_Vector[19] = RSP_Vector_VABS_SIMD;
+    RSP_Vector[20] = RSP_Vector_VADDC_SIMD;
+    RSP_Vector[21] = RSP_Vector_VSUBC_SIMD;
+    RSP_Vector[22] = rsp_UnknownOpcode;
+    RSP_Vector[23] = rsp_UnknownOpcode;
+    RSP_Vector[24] = rsp_UnknownOpcode;
+    RSP_Vector[25] = rsp_UnknownOpcode;
+    RSP_Vector[26] = rsp_UnknownOpcode;
+    RSP_Vector[27] = rsp_UnknownOpcode;
+    RSP_Vector[28] = rsp_UnknownOpcode;
+    RSP_Vector[29] = RSP_Vector_VSAW_SIMD;
+    RSP_Vector[30] = rsp_UnknownOpcode;
+    RSP_Vector[31] = rsp_UnknownOpcode;
+    RSP_Vector[32] = RSP_Vector_VLT_SIMD;
+    RSP_Vector[33] = RSP_Vector_VEQ_SIMD;
+    RSP_Vector[34] = RSP_Vector_VNE_SIMD;
+    RSP_Vector[35] = RSP_Vector_VGE_SIMD;
+    RSP_Vector[36] = RSP_Vector_VCL_SIMD;
+    RSP_Vector[37] = RSP_Vector_VCH_SIMD;
+    RSP_Vector[38] = RSP_Vector_VCR_SIMD;
+    RSP_Vector[39] = RSP_Vector_VMRG_SIMD;
+    RSP_Vector[40] = RSP_Vector_VAND_SIMD;
+    RSP_Vector[41] = RSP_Vector_VNAND_SIMD;
+    RSP_Vector[42] = RSP_Vector_VOR_SIMD;
+    RSP_Vector[43] = RSP_Vector_VNOR_SIMD;
+    RSP_Vector[44] = RSP_Vector_VXOR_SIMD;
+    RSP_Vector[45] = RSP_Vector_VNXOR_SIMD;
+    RSP_Vector[46] = rsp_UnknownOpcode;
+    RSP_Vector[47] = rsp_UnknownOpcode;
+    RSP_Vector[48] = RSP_Vector_VRCP_SIMD;
+    RSP_Vector[49] = RSP_Vector_VRCPL_SIMD;
+    RSP_Vector[50] = RSP_Vector_VRCPH_SIMD;
+    RSP_Vector[51] = RSP_Vector_VMOV_SIMD;
+    RSP_Vector[52] = RSP_Vector_VRSQ_SIMD;
+    RSP_Vector[53] = RSP_Vector_VRSQL_SIMD;
+    RSP_Vector[54] = RSP_Vector_VRSQH_SIMD;
+    RSP_Vector[55] = RSP_Vector_VNOOP_SIMD;
+    RSP_Vector[56] = rsp_UnknownOpcode;
+    RSP_Vector[57] = rsp_UnknownOpcode;
+    RSP_Vector[58] = rsp_UnknownOpcode;
+    RSP_Vector[59] = rsp_UnknownOpcode;
+    RSP_Vector[60] = rsp_UnknownOpcode;
+    RSP_Vector[61] = rsp_UnknownOpcode;
+    RSP_Vector[62] = rsp_UnknownOpcode;
+    RSP_Vector[63] = rsp_UnknownOpcode;
+#endif
 	RSP_Lc2[ 0] = RSP_Opcode_LBV;
 	RSP_Lc2[ 1] = RSP_Opcode_LSV;
 	RSP_Lc2[ 2] = RSP_Opcode_LLV;

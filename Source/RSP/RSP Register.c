@@ -40,6 +40,7 @@ WNDPROC RefreshProc;
 UWORD32   RSP_GPR[32], RSP_Flags[4];
 UDWORD  RSP_ACCUM[8];
 VECTOR  RSP_Vect[32];
+ACCUMULATOR ACC;
 
 char * GPR_Strings[32] = {
 	"R0", "AT", "V0", "V1", "A0", "A1", "A2", "A3",
