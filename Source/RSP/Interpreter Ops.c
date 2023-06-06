@@ -49,9 +49,41 @@
     out = _mm256_min_epi32(in, _mm256_set1_epi32(32767)); \
     out = _mm256_max_epi32(out, _mm256_set1_epi32((int32_t)-32768)); \
 
-#define Set_Acc_Low(vd) ACC.Low = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1))
-#define Set_Acc_Middle(vd) ACC.Middle = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1))
-#define Set_Acc_High(vd) ACC.High = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1))
+#define Set_ACC_Low(vd)                                                     \
+    const __m256i masked = _mm256_and_si256(_mm256_set1_epi32(0xFFFF), vd); \
+    const int16_t e0 = _mm256_extract_epi16(masked, 0);                     \
+    const int16_t e1 = _mm256_extract_epi16(masked, 2);                     \
+    const int16_t e2 = _mm256_extract_epi16(masked, 4);                     \
+    const int16_t e3 = _mm256_extract_epi16(masked, 6);                     \
+    const int16_t e4 = _mm256_extract_epi16(masked, 8);                     \
+    const int16_t e5 = _mm256_extract_epi16(masked, 10);                    \
+    const int16_t e6 = _mm256_extract_epi16(masked, 12);                    \
+    const int16_t e7 = _mm256_extract_epi16(masked, 14);                    \
+    ACC.Low = _mm_set_epi16(e7, e6, e5, e4, e3, e2, e1, e0);\
+
+#define Set_ACC_Middle(vd)                                                  \
+    const __m256i masked = _mm256_and_si256(_mm256_set1_epi32(0xFFFF), vd); \
+    const int16_t e0 = _mm256_extract_epi16(masked, 0);                     \
+    const int16_t e1 = _mm256_extract_epi16(masked, 2);                     \
+    const int16_t e2 = _mm256_extract_epi16(masked, 4);                     \
+    const int16_t e3 = _mm256_extract_epi16(masked, 6);                     \
+    const int16_t e4 = _mm256_extract_epi16(masked, 8);                     \
+    const int16_t e5 = _mm256_extract_epi16(masked, 10);                    \
+    const int16_t e6 = _mm256_extract_epi16(masked, 12);                    \
+    const int16_t e7 = _mm256_extract_epi16(masked, 14);                    \
+    ACC.Middle = _mm_set_epi16(e7, e6, e5, e4, e3, e2, e1, e0);\
+
+#define Set_ACC_High(vd)                                                    \
+    const __m256i masked = _mm256_and_si256(_mm256_set1_epi32(0xFFFF), vd); \
+    const int16_t e0 = _mm256_extract_epi16(masked, 0);                     \
+    const int16_t e1 = _mm256_extract_epi16(masked, 2);                     \
+    const int16_t e2 = _mm256_extract_epi16(masked, 4);                     \
+    const int16_t e3 = _mm256_extract_epi16(masked, 6);                     \
+    const int16_t e4 = _mm256_extract_epi16(masked, 8);                     \
+    const int16_t e5 = _mm256_extract_epi16(masked, 10);                    \
+    const int16_t e6 = _mm256_extract_epi16(masked, 12);                    \
+    const int16_t e7 = _mm256_extract_epi16(masked, 14);                    \
+    ACC.High = _mm_set_epi16(e7, e6, e5, e4, e3, e2, e1, e0);\
 
 #define Set_VD(vd)                                                                                         \
     __m128i value = _mm_packs_epi32(_mm256_extracti128_si256(vd, 0b0), _mm256_extracti128_si256(vd, 0b1)); \
@@ -2364,35 +2396,23 @@ void RSP_Vector_VMADH_SIMD(void)
 
 void RSP_Vector_VADD_SIMD(void)
 {
-    int el, del;
-    int32_t temp;
-    VECTOR result = {0};
+    Load_VS(vs);
+    Load_VT(vt);
+    Load_VCO(vco);
 
-    for (el = 0; el < 8; el++)
-    {
-        del = EleSpec[RSPOpC.rs].B[el];
+    __m256i vd;
+    vd = _mm256_add_epi32(vs, vt);
+    vd = _mm256_add_epi32(vd, vco);
 
-        temp = (int)RSP_Vect[RSPOpC.rd].HW[el] + (int)RSP_Vect[RSPOpC.rt].HW[del] +
-               ((RSP_Flags[0].UW >> (7 - el)) & 0x1);
-        RSP_ACCUM[el].HW[1] = ((int16_t)temp);
-        // Clamp signed
-        if (temp < ((int16_t)-32768))
-        {
-            result.HW[el] = ((int16_t)-32768);
-        }
-        else if (temp > ((int16_t)32767))
-        {
-            result.HW[el] = ((int16_t)32767);
-        }
-        else
-        {
-            result.HW[el] = ((int16_t)temp);
-        }
-    }
-    RSP_Vect[RSPOpC.sa] = result;
+    Set_ACC_Low(vd);
+
+    Clamp_Signed(vd, vd);
+
+    Set_VD(vd);
+
     Reset_Flags();
 
-    Update_ACC();
+    Update_RSP_ACCUM();
 }
 
 void RSP_Vector_VSUB_SIMD(void)
@@ -3001,7 +3021,7 @@ void RSP_Vector_VXOR_SIMD(void)
 
     __m256i vd = _mm256_xor_epi32(vs, vt);
 
-    Set_Acc_Low(vd);
+    Set_ACC_Low(vd);
 
     Set_VD(vd);
 
@@ -3017,7 +3037,7 @@ void RSP_Vector_VNXOR_SIMD(void)
     vd = _mm256_xor_epi32(vs, vt);
     vd = _mm256_xor_si256(vd, _mm256_set1_epi32(-1));
 
-    Set_Acc_Low(vd);
+    Set_ACC_Low(vd);
 
     Set_VD(vd);
 
