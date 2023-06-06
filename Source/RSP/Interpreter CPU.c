@@ -441,6 +441,12 @@ void BuildInterpreterCPU(void) {
 	RSP_Sc2[29] = rsp_UnknownOpcode;
 	RSP_Sc2[30] = rsp_UnknownOpcode;
 	RSP_Sc2[31] = rsp_UnknownOpcode;
+
+#if USE_SIMD
+    ACC.Low    = _mm_set1_epi8(0);
+    ACC.Middle = _mm_set1_epi8(0);
+    ACC.High   = _mm_set1_epi8(0);
+#endif
 }
 
 DWORD RunInterpreterCPU(DWORD Cycles) {

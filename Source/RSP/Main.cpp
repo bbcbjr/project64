@@ -563,6 +563,8 @@ EXPORT void RomClosed(void)
 	StopRDPLog();
 	StopCPULog();
 
+	ResetCPU();
+
 #ifdef GenerateLog
 	Stop_Log();
 #endif

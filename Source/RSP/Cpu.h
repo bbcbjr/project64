@@ -16,4 +16,6 @@ extern OPCODE RSPOpC;
 void SetCPU(DWORD core);
 void Build_RSP (void);
 
+void ResetCPU(void);
+
 extern DWORD Mfc0Count, SemaphoreExit;

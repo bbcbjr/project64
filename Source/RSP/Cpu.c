@@ -258,3 +258,18 @@ uint32_t DoRspCycles (uint32_t Cycles )
 
 	return Cycles;
 }
+
+void ResetCPU(void)
+{
+	// Rebuild the instructions
+    Build_RSP();
+
+	// Clear the accumulator
+    __m128i zero = _mm_set1_epi32(0);
+    ACC.High = zero;
+    ACC.Middle = zero;
+    ACC.Low = zero;
+
+	// Clear VCO
+    RSP_Flags[0].UW = 0;
+}
